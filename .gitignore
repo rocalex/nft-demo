@@ -3,3 +3,4 @@ venv/
 .env.local
 .env.testnet
 .idea/
+*.teal
