@@ -101,8 +101,7 @@ class BaseApp:
         client.send_transaction(signedTxn)
         return waitForTransaction(client, signedTxn.get_txid())
 
-    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, assets: List[int],
-                  rarities: List[int]):
+    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarities: List[int]):
         params = client.suggested_params()
         app_args = [b"setup"]
         for rarity in rarities:
@@ -113,7 +112,7 @@ class BaseApp:
             index=app_id,
             on_complete=transaction.OnComplete.NoOpOC,
             app_args=app_args,
-            foreign_assets=assets
+            foreign_assets=[asset_id]
         )
 
         signed_setup_app_txn = setup_app_txn.sign(sender.getPrivateKey())
@@ -140,17 +139,18 @@ class BaseApp:
 
         waitForTransaction(client, signed_fund_asset_txn.get_txid())
 
-    def replace_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int):
+    def send_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: List[int]):
         params = client.suggested_params()
+
+        app_args = [b"replace"]
+
+        [app_args.append(r.to_bytes(8, 'big')) for r in rarity]
 
         call_txn = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),
             index=app_id,
             on_complete=transaction.OnComplete.NoOpOC,
-            app_args=[
-                b"replace",
-                rarity.to_bytes(8, 'big'),
-            ],
+            app_args=app_args,
             foreign_assets=[asset_id],
             sp=params,
         )

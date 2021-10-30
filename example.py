@@ -30,7 +30,9 @@ class AlgoVerseExample(BaseApp):
                 token_id = createNFT(self.client, self.creator)
                 print("The Token ID is:", token_id)
                 self.asset_ids.append(token_id)
-                self.rarities.append(random.randint(0, 20))
+                self.rarities.append(
+                    [random.randint(0, 20), random.randint(0, 20), random.randint(0, 20), random.randint(0, 20)]
+                )
 
             except AlgodHTTPError:
                 traceback.print_exc()
@@ -50,62 +52,46 @@ class AlgoVerseExample(BaseApp):
             traceback.print_exc()
 
     def fund_assets(self):
-        sub_rarities = []
-        sub_assets = []
-        rr = []
-        aa = []
-        for i in range(self.total_assets):
-            if i % 8 == 0 and i != 0:
-                rr.append(sub_rarities)
-                rr.append(sub_assets)
-                sub_rarities = []
-                sub_assets = []
-            if i == (self.total_assets - 1):
-                rr.append(sub_rarities)
-                aa.append(sub_assets)
-            sub_rarities.append(self.rarities[i])
-            sub_assets.append(self.asset_ids[i])
-
-        for idx in range(len(rr)):
-            sub_rarities = rr[idx]
-            sub_assets = aa[idx]
+        for idx in range(len(self.asset_ids)):
             try:
                 print("=========================================")
                 print("Setting up the app....")
-                self.setup_app(self.client, self.creator, self.app_id, sub_assets, sub_rarities)
+                rarity = self.rarities[idx]
+                rarity.sort()
+                self.setup_app(self.client, self.creator, self.app_id, self.asset_ids[idx], rarity)
 
-                for asset_id in sub_assets:
-                    print("=========================================")
-                    print("Funding Algo to the smart contract....")
-                    self.fund_algo_to_app(
-                        client=self.client,
-                        funder=self.creator,
-                        app_id=self.app_id,
-                    )
+                print("=========================================")
+                print("Funding Algo to the smart contract....")
+                self.fund_algo_to_app(
+                    client=self.client,
+                    funder=self.creator,
+                    app_id=self.app_id,
+                )
 
-                    print("=========================================")
-                    print("Funding token to app....")
-                    self.fund_asset_to_app(
-                        client=self.client,
-                        app_id=self.app_id,
-                        sender=self.creator,
-                        asset_id=asset_id,
-                        amount=1
-                    )
+                print("=========================================")
+                print("Funding token to app....")
+                self.fund_asset_to_app(
+                    client=self.client,
+                    app_id=self.app_id,
+                    sender=self.creator,
+                    asset_id=self.asset_ids[idx],
+                    amount=1
+                )
             except AlgodHTTPError:
                 traceback.print_exc()
 
-    def test_replace_asset(self):
+    def test_send_asset(self):
         try:
             print("=========================================")
             print("Generating an example token to replace....")
             token_id = createNFT(self.client, self.creator)
-            rarity = random.randint(0, 20)
+            rarity = [random.randint(0, 20), random.randint(0, 20), random.randint(0, 20), random.randint(0, 20)]
             print("The Token ID is:", token_id)
             print("Rarity: ", rarity)
             print("=========================================")
             print("Replacing token....")
-            self.replace_asset(self.client, self.creator, self.app_id, token_id, rarity)
+            rarity.sort()
+            self.send_asset(self.client, self.creator, self.app_id, token_id, rarity)
 
         except AlgodHTTPError:
             traceback.print_exc()
@@ -122,7 +108,7 @@ class AlgoVerseExample(BaseApp):
         self.deploy_app()
         self.create_example_assets()
         self.fund_assets()
-        self.test_replace_asset()
+        self.test_send_asset()
         self.close_algoverse_app()
 
 
