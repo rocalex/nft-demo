@@ -17,7 +17,7 @@ class AlgoVerse:
     @Subroutine(TealType.none)
     def decrease(key):
         return Seq(
-            App.globalPut(key, App.globalGet(key) + Int(1)),
+            App.globalPut(key, App.globalGet(key) - Int(1)),
             Return()
         )
 
