@@ -139,12 +139,14 @@ class BaseApp:
 
         waitForTransaction(client, signed_fund_asset_txn.get_txid())
 
-    def send_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: List[int]):
+    def send_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int, amount: int):
         params = client.suggested_params()
 
-        app_args = [b"replace"]
-
-        [app_args.append(r.to_bytes(8, 'big')) for r in rarity]
+        app_args = [
+            b"replace",
+            rarity.to_bytes(8, 'big'),
+            amount.to_bytes(8, 'big')
+        ]
 
         call_txn = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),

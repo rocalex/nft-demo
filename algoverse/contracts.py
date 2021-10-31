@@ -4,6 +4,7 @@ from pyteal import *
 class AlgoVerse:
     class Variables:
         assets_cnt_key = Bytes("assets_cnt")
+        higher_rarity_key = Bytes("higher")
 
     @staticmethod
     @Subroutine(TealType.none)
@@ -21,6 +22,29 @@ class AlgoVerse:
             Return()
         )
 
+    @staticmethod
+    @Subroutine(TealType.uint64)
+    def get_higher_rarity(asset_id: Expr, rarity: Expr):
+        rarities = App.globalGet(Itob(asset_id))
+        r1 = Substring(rarities, Int(0), Int(8))
+        r2 = Substring(rarities, Int(8), Int(16))
+        r3 = Substring(rarities, Int(16), Int(24))
+        return Seq(
+            If(Btoi(rarity) > Btoi(r3)).Then(
+                Return(Int(0))
+            ).ElseIf(And(Btoi(r3) >= Btoi(rarity), Btoi(rarity) > Btoi(r2))).Then(Seq(
+                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r3),
+                Return(Int(1))
+            )).ElseIf(And(Btoi(r2) >= Btoi(rarity), Btoi(rarity) > Btoi(r1))).Then(Seq(
+                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r2),
+                Return(Int(1))
+            )).ElseIf(Btoi(r1) >= Btoi(rarity)).Then(Seq(
+                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r1),
+                Return(Int(1))
+            )),
+            Return(Int(0))
+        )
+
     def on_create(self):
         return Seq(
             App.globalPut(self.Variables.assets_cnt_key, Int(0)),
@@ -28,14 +52,14 @@ class AlgoVerse:
         )
 
     def on_setup(self):
-        rb = Btoi(Txn.application_args[1])  # base rarity
-        r1 = Btoi(Txn.application_args[2])
-        r2 = Btoi(Txn.application_args[3])
-        r3 = Btoi(Txn.application_args[4])
+        rb = Txn.application_args[1]  # base rarity
+        r1 = Txn.application_args[2]
+        r2 = Txn.application_args[3]
+        r3 = Txn.application_args[4]
         return Seq(
             App.globalPut(
                 App.globalGet(self.Variables.assets_cnt_key),
-                Concat(Itob(Txn.assets[0]), Itob(rb), Itob(r1), Itob(r2), Itob(r3))  # asset : rarity
+                Concat(Itob(Txn.assets[0]), rb, r1, r2, r3)  # asset : rarity
             ),
 
             # opt into NFT asset -- because you can't opt in if you're already opted in, this is what
@@ -57,18 +81,25 @@ class AlgoVerse:
 
     def on_replace(self):
         foreign_asset = Txn.assets[0]
-        rb = Btoi(Txn.application_args[1])  # base rarity
-        r1 = Btoi(Txn.application_args[2])
-        r2 = Btoi(Txn.application_args[3])
-        r3 = Btoi(Txn.application_args[4])
+        r = Txn.application_args[1]  # given rarity
+        amount = Btoi(Txn.application_args[2])  # amount
         status = App.globalGetEx(Txn.applications[0], Itob(foreign_asset))
         return Seq(
             status,
             Assert(status.hasValue()),
-            App.globalPut(
-                Itob(foreign_asset),
-                Concat(Itob(Txn.assets[0]), Itob(rb), Itob(r1), Itob(r2), Itob(r3))  # asset : rarity
+            Assert(AlgoVerse.get_higher_rarity(foreign_asset, r) == Int(1)),
+
+            InnerTxnBuilder.Begin(),
+            InnerTxnBuilder.SetFields(
+                {
+                    TxnField.type_enum: TxnType.AssetTransfer,
+                    TxnField.xfer_asset: foreign_asset,
+                    TxnField.asset_receiver: Txn.sender(),
+                    TxnField.asset_amount: Btoi(amount)
+                }
             ),
+            InnerTxnBuilder.Submit(),
+
             Approve()
         )
 

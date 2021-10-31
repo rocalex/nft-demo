@@ -85,12 +85,11 @@ class AlgoVerseExample(BaseApp):
             print("=========================================")
             print("Generating an example token to replace....")
             token_id = createNFT(self.client, self.creator)
-            rarity = [random.randint(0, 20), random.randint(0, 20), random.randint(0, 20), random.randint(0, 20)]
+            rarity = random.randint(0, 20)
             print("The Token ID is:", token_id)
             print("Rarity: ", rarity)
             print("=========================================")
             print("Replacing token....")
-            rarity.sort()
             self.send_asset(self.client, self.creator, self.app_id, token_id, rarity)
 
         except AlgodHTTPError:
