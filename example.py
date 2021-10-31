@@ -90,7 +90,7 @@ class AlgoVerseExample(BaseApp):
             print("Rarity: ", rarity)
             print("=========================================")
             print("Replacing token....")
-            self.send_asset(self.client, self.creator, self.app_id, token_id, rarity)
+            self.send_asset(self.client, self.creator, self.app_id, token_id, rarity, 1)
 
         except AlgodHTTPError:
             traceback.print_exc()
