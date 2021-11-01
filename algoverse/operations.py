@@ -5,6 +5,7 @@ from algosdk.logic import get_application_address
 from algosdk.v2client.algod import AlgodClient
 
 from .account import Account
+from .assets import President
 from .contracts import AlgoVerse
 from .utils import fullyCompileContract, waitForTransaction, PendingTxnResponse
 
@@ -101,16 +102,21 @@ class BaseApp:
         client.send_transaction(signedTxn)
         return waitForTransaction(client, signedTxn.get_txid())
 
-    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int):
+    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, asset: President):
         params = client.suggested_params()
-        app_args = [b"setup", rarity.to_bytes(8, 'big')]
+        app_args = [b"setup"]
         setup_app_txn = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),
             sp=params,
             index=app_id,
             on_complete=transaction.OnComplete.NoOpOC,
             app_args=app_args,
-            foreign_assets=[asset_id]
+            foreign_assets=[
+                asset.base,
+                asset.silver,
+                asset.gold,
+                asset.diamond,
+            ]
         )
 
         signed_setup_app_txn = setup_app_txn.sign(sender.getPrivateKey())
@@ -119,12 +125,12 @@ class BaseApp:
 
         waitForTransaction(client, signed_setup_app_txn.get_txid())
 
-    def send_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int, amount: int):
+    def send_asset(self, client: AlgodClient, sender: Account, app_id: int, base_asset_id: int, higher_asset_id: int,
+                   amount: int):
         params = client.suggested_params()
 
         app_args = [
             b"replace",
-            rarity.to_bytes(8, 'big'),
             amount.to_bytes(8, 'big')
         ]
 
@@ -133,7 +139,7 @@ class BaseApp:
             index=app_id,
             on_complete=transaction.OnComplete.NoOpOC,
             app_args=app_args,
-            foreign_assets=[asset_id],
+            foreign_assets=[base_asset_id, higher_asset_id],
             sp=params,
         )
 
