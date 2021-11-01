@@ -44,7 +44,7 @@ class AlgoVerse:
     def on_setup(self):
         br = Txn.application_args[1]  # base rarity
         return Seq(
-            App.globalPut(Btoi(Txn.assets[0]), br),
+            App.globalPut(Itob(Txn.assets[0]), br),
 
             # opt into NFT asset -- because you can't opt in if you're already opted in, this is what
             # we'll use to make sure the contract has been set up
@@ -79,7 +79,7 @@ class AlgoVerse:
                     TxnField.type_enum: TxnType.AssetTransfer,
                     TxnField.xfer_asset: asset_to_burn,
                     TxnField.asset_receiver: Global.current_application_address(),
-                    TxnField.asset_amount: Btoi(amount),
+                    TxnField.asset_amount: amount,
                     TxnField.asset_sender: Txn.sender(),
                 }
             ),
@@ -104,7 +104,7 @@ class AlgoVerse:
             InnerTxnBuilder.Submit(),
 
             # store the new asset id and rarity
-            App.globalPut(Btoi(Txn.created_asset_id()), Itob(Btoi(r) + Int(1))),
+            App.globalPut(Itob(Txn.created_asset_id()), Itob(Btoi(r) + Int(1))),
 
             # transfer the new asset
             InnerTxnBuilder.Begin(),
