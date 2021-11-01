@@ -41,19 +41,21 @@ def createNFT(client: AlgodClient, creator: Account) -> int:
     return response.assetIndex
 
 
-def createToken(client: AlgodClient, creator: Account) -> int:
+def createToken(client: AlgodClient, creator: Account, amount: int, clawback_address: str) -> int:
+    randomNumber = randint(1, 45)
+
     txn = transaction.AssetConfigTxn(
         sender=creator.getAddress(),
         sp=client.suggested_params(),
-        total=10000,  # Fungible tokens have totalIssuance greater than 1
-        decimals=2,  # Fungible tokens typically have decimals greater than 0
+        total=amount,  # Fungible tokens have totalIssuance greater than 1
+        decimals=0,  # Fungible tokens typically have decimals greater than 0
         default_frozen=False,
-        unit_name="ALVER",
-        asset_name="ALVER",
+        unit_name="President",
+        asset_name=f"President {randomNumber}",
         manager=creator.getAddress(),
         reserve=creator.getAddress(),
         freeze=creator.getAddress(),
-        clawback=creator.getAddress()
+        clawback=clawback_address
     )
 
     signedTxn = txn.sign(creator.getPrivateKey())

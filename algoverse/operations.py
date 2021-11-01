@@ -101,11 +101,9 @@ class BaseApp:
         client.send_transaction(signedTxn)
         return waitForTransaction(client, signedTxn.get_txid())
 
-    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarities: List[int]):
+    def setup_app(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int):
         params = client.suggested_params()
-        app_args = [b"setup"]
-        for rarity in rarities:
-            app_args.append(rarity.to_bytes(8, 'big'))
+        app_args = [b"setup", rarity.to_bytes(8, 'big')]
         setup_app_txn = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),
             sp=params,
@@ -120,24 +118,6 @@ class BaseApp:
         client.send_transaction(signed_setup_app_txn)
 
         waitForTransaction(client, signed_setup_app_txn.get_txid())
-
-    def fund_asset_to_app(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, amount: int):
-        app_adr = get_application_address(app_id)
-        params = client.suggested_params()
-
-        fund_asset_txn = transaction.AssetTransferTxn(
-            sender=sender.getAddress(),
-            receiver=app_adr,
-            index=asset_id,
-            amt=amount,
-            sp=params,
-        )
-
-        signed_fund_asset_txn = fund_asset_txn.sign(sender.getPrivateKey())
-
-        client.send_transaction(signed_fund_asset_txn)
-
-        waitForTransaction(client, signed_fund_asset_txn.get_txid())
 
     def send_asset(self, client: AlgodClient, sender: Account, app_id: int, asset_id: int, rarity: int, amount: int):
         params = client.suggested_params()

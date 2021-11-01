@@ -3,7 +3,6 @@ from pyteal import *
 
 class AlgoVerse:
     class Variables:
-        assets_cnt_key = Bytes("assets_cnt")
         higher_rarity_key = Bytes("higher")
 
     @staticmethod
@@ -24,43 +23,28 @@ class AlgoVerse:
 
     @staticmethod
     @Subroutine(TealType.uint64)
-    def get_higher_rarity(asset_id: Expr, rarity: Expr):
-        rarities = App.globalGet(Itob(asset_id))
-        r1 = Substring(rarities, Int(0), Int(8))
-        r2 = Substring(rarities, Int(8), Int(16))
-        r3 = Substring(rarities, Int(16), Int(24))
+    def check_amount_by_rarity(amount: Expr, rarity: Expr) -> Expr:
+        """
+        :param amount: int
+        :param rarity: int
+        :return: Int(0) / Int(1)
+        """
         return Seq(
-            If(Btoi(rarity) > Btoi(r3)).Then(
-                Return(Int(0))
-            ).ElseIf(And(Btoi(r3) >= Btoi(rarity), Btoi(rarity) > Btoi(r2))).Then(Seq(
-                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r3),
-                Return(Int(1))
-            )).ElseIf(And(Btoi(r2) >= Btoi(rarity), Btoi(rarity) > Btoi(r1))).Then(Seq(
-                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r2),
-                Return(Int(1))
-            )).ElseIf(Btoi(r1) >= Btoi(rarity)).Then(Seq(
-                App.globalPut(AlgoVerse.Variables.higher_rarity_key, r1),
-                Return(Int(1))
-            )),
+            If(And(rarity == Int(1), amount == Int(2))).Then(Return(Int(1))),
+            If(And(rarity == Int(2), amount == Int(3))).Then(Return(Int(1))),
+            If(And(rarity == Int(3), amount == Int(2))).Then(Return(Int(1))),
             Return(Int(0))
         )
 
     def on_create(self):
         return Seq(
-            App.globalPut(self.Variables.assets_cnt_key, Int(0)),
             Approve(),
         )
 
     def on_setup(self):
-        rb = Txn.application_args[1]  # base rarity
-        r1 = Txn.application_args[2]
-        r2 = Txn.application_args[3]
-        r3 = Txn.application_args[4]
+        br = Txn.application_args[1]  # base rarity
         return Seq(
-            App.globalPut(
-                App.globalGet(self.Variables.assets_cnt_key),
-                Concat(Itob(Txn.assets[0]), rb, r1, r2, r3)  # asset : rarity
-            ),
+            App.globalPut(Btoi(Txn.assets[0]), br),
 
             # opt into NFT asset -- because you can't opt in if you're already opted in, this is what
             # we'll use to make sure the contract has been set up
@@ -74,32 +58,65 @@ class AlgoVerse:
             ),
             InnerTxnBuilder.Submit(),
 
-            AlgoVerse.increase(self.Variables.assets_cnt_key),
-
             Approve(),
         )
 
     def on_replace(self):
-        foreign_asset = Txn.assets[0]
+        asset_to_burn = Txn.assets[0]
         r = Txn.application_args[1]  # given rarity
         amount = Btoi(Txn.application_args[2])  # amount
-        status = App.globalGetEx(Txn.applications[0], Itob(foreign_asset))
+        status = App.globalGetEx(Txn.applications[0], Itob(asset_to_burn))
         return Seq(
             status,
             Assert(status.hasValue()),
-            Assert(AlgoVerse.get_higher_rarity(foreign_asset, r) == Int(1)),
+            Assert(Btoi(status.value()) == Btoi(r)),
+            Assert(AlgoVerse.check_amount_by_rarity(amount, Btoi(r))),
 
+            # revoke given amount of assets
             InnerTxnBuilder.Begin(),
             InnerTxnBuilder.SetFields(
                 {
                     TxnField.type_enum: TxnType.AssetTransfer,
-                    TxnField.xfer_asset: foreign_asset,
-                    TxnField.asset_receiver: Txn.sender(),
-                    TxnField.asset_amount: Btoi(amount)
+                    TxnField.xfer_asset: asset_to_burn,
+                    TxnField.asset_receiver: Global.current_application_address(),
+                    TxnField.asset_amount: Btoi(amount),
+                    TxnField.asset_sender: Txn.sender(),
                 }
             ),
             InnerTxnBuilder.Submit(),
 
+            # create higher asset
+            InnerTxnBuilder.Begin(),
+            InnerTxnBuilder.SetFields(
+                {
+                    TxnField.type_enum: TxnType.AssetConfig,
+                    TxnField.config_asset_total: Int(20),
+                    TxnField.config_asset_decimals: Int(1),
+                    TxnField.config_asset_unit_name: Concat(Bytes("President "), r),
+                    TxnField.config_asset_name: Concat(Bytes("President "), r),
+                    TxnField.config_asset_url: Bytes("https://gold.rush/"),
+                    TxnField.config_asset_manager: Txn.sender(),
+                    TxnField.config_asset_reserve: Txn.sender(),
+                    TxnField.config_asset_freeze: Txn.sender(),
+                    TxnField.config_asset_clawback: Global.current_application_address(),
+                }
+            ),
+            InnerTxnBuilder.Submit(),
+
+            # store the new asset id and rarity
+            App.globalPut(Btoi(Txn.created_asset_id()), Itob(Btoi(r) + Int(1))),
+
+            # transfer the new asset
+            InnerTxnBuilder.Begin(),
+            InnerTxnBuilder.SetFields(
+                {
+                    TxnField.type_enum: TxnType.AssetTransfer,
+                    TxnField.xfer_asset: Txn.created_asset_id(),
+                    TxnField.asset_receiver: Txn.sender(),
+                    TxnField.asset_amount: Int(1),
+                }
+            ),
+            InnerTxnBuilder.Submit(),
             Approve()
         )
 
