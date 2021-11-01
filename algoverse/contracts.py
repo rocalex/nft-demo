@@ -2,9 +2,6 @@ from pyteal import *
 
 
 class AlgoVerse:
-    class Variables:
-        higher_rarity_key = Bytes("higher")
-
     @staticmethod
     @Subroutine(TealType.none)
     def increase(key):
