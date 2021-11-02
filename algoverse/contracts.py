@@ -124,6 +124,17 @@ class AlgoVerse:
             ),
             InnerTxnBuilder.Submit(),
 
+            # opt-in the higher asset
+            InnerTxnBuilder.Begin(),
+            InnerTxnBuilder.SetFields(
+                {
+                    TxnField.type_enum: TxnType.AssetTransfer,
+                    TxnField.xfer_asset: higher_asset,
+                    TxnField.asset_receiver: Txn.sender(),
+                }
+            ),
+            InnerTxnBuilder.Submit(),
+
             # transfer the higher asset
             InnerTxnBuilder.Begin(),
             InnerTxnBuilder.SetFields(
